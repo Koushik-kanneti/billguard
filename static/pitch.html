@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BillGuard — Hackathon Pitch</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:   #0F172A;
+    --navy2:  #1E293B;
+    --navy3:  #334155;
+    --red:    #EF4444;
+    --red2:   #FCA5A5;
+    --green:  #22C55E;
+    --amber:  #F59E0B;
+    --blue:   #3B82F6;
+    --purple: #8B5CF6;
+    --white:  #F8FAFC;
+    --muted:  #94A3B8;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    font-family: 'Inter', sans-serif;
+    background: var(--navy);
+    color: var(--white);
+    overflow: hidden;
+  }
+
+  /* ── SLIDE CONTAINER ── */
+  .deck { width: 100vw; height: 100vh; position: relative; }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    padding: 60px 80px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    transform: translateX(40px);
+  }
+  .slide.active {
+    opacity: 1; pointer-events: all; transform: translateX(0);
+  }
+  .slide.exit {
+    opacity: 0; transform: translateX(-40px);
+  }
+
+  /* ── PROGRESS BAR ── */
+  #progress {
+    position: fixed; top: 0; left: 0; height: 3px;
+    background: linear-gradient(90deg, var(--red), var(--purple));
+    transition: width 0.4s ease; z-index: 100;
+  }
+
+  /* ── SLIDE NUMBER ── */
+  #slide-num {
+    position: fixed; bottom: 24px; right: 36px;
+    font-size: 12px; color: var(--muted); letter-spacing: 1px;
+    z-index: 100;
+  }
+
+  /* ── NAV BUTTONS ── */
+  .nav-btn {
+    position: fixed; top: 50%; transform: translateY(-50%);
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    color: var(--white); width: 44px; height: 44px; border-radius: 50%;
+    font-size: 18px; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; transition: background 0.2s; z-index: 100;
+  }
+  .nav-btn:hover { background: rgba(255,255,255,0.15); }
+  #prev { left: 20px; }
+  #next { right: 20px; }
+
+  /* ── TYPOGRAPHY ── */
+  .tag {
+    font-size: 11px; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--red);
+    margin-bottom: 16px;
+  }
+  .tag.green { color: var(--green); }
+  .tag.blue  { color: var(--blue); }
+  .tag.amber { color: var(--amber); }
+  .tag.purple { color: var(--purple); }
+
+  h1 {
+    font-size: clamp(32px, 4.5vw, 58px);
+    font-weight: 900; line-height: 1.1;
+    letter-spacing: -1.5px;
+    margin-bottom: 24px;
+  }
+  h2 {
+    font-size: clamp(22px, 3vw, 38px);
+    font-weight: 800; line-height: 1.2;
+    letter-spacing: -0.5px;
+    margin-bottom: 20px;
+  }
+  h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+
+  p, li { font-size: clamp(14px, 1.5vw, 17px); line-height: 1.7; color: #CBD5E1; }
+  .big-p { font-size: clamp(17px, 2vw, 22px); line-height: 1.6; color: #E2E8F0; }
+
+  .highlight { color: var(--white); font-weight: 700; }
+  .red-hl  { color: var(--red); font-weight: 700; }
+  .green-hl{ color: var(--green); font-weight: 700; }
+  .amber-hl{ color: var(--amber); font-weight: 700; }
+  .blue-hl { color: var(--blue); font-weight: 700; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--navy2);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; padding: 28px;
+  }
+  .card.red-border   { border-color: rgba(239,68,68,0.4); }
+  .card.green-border { border-color: rgba(34,197,94,0.4); }
+  .card.amber-border { border-color: rgba(245,158,11,0.4); }
+  .card.blue-border  { border-color: rgba(59,130,246,0.4); }
+  .card.purple-border{ border-color: rgba(139,92,246,0.4); }
+
+  /* ── GRID ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: 100%; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; width: 100%; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; width: 100%; }
+
+  /* ── BADGE ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 999px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+  }
+  .badge.red    { background: rgba(239,68,68,0.15);   color: var(--red); }
+  .badge.green  { background: rgba(34,197,94,0.15);   color: var(--green); }
+  .badge.amber  { background: rgba(245,158,11,0.15);  color: var(--amber); }
+  .badge.blue   { background: rgba(59,130,246,0.15);  color: var(--blue); }
+  .badge.purple { background: rgba(139,92,246,0.15);  color: var(--purple); }
+
+  /* ── PILL STAT ── */
+  .stat-num {
+    font-size: clamp(28px, 4vw, 48px);
+    font-weight: 900; line-height: 1;
+    margin-bottom: 6px;
+  }
+  .stat-label { font-size: 13px; color: var(--muted); font-weight: 500; }
+
+  /* ── DIVIDER ── */
+  .divider { width: 60px; height: 4px; border-radius: 2px; background: var(--red); margin: 20px 0; }
+  .divider.green  { background: var(--green); }
+  .divider.center { margin: 20px auto; }
+
+  /* ── STEP FLOW ── */
+  .step-flow {
+    display: flex; align-items: center; gap: 0; width: 100%;
+  }
+  .step {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; text-align: center;
+    background: var(--navy2);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; padding: 24px 16px;
+  }
+  .step-icon { font-size: 32px; margin-bottom: 12px; }
+  .step-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; color: var(--white); }
+  .step-desc  { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .step-arrow {
+    font-size: 20px; color: var(--muted);
+    padding: 0 8px; flex-shrink: 0;
+  }
+
+  /* ── VIOLATION ITEM ── */
+  .violation {
+    display: flex; align-items: flex-start; gap: 12px;
+    background: var(--navy2);
+    border-left: 3px solid var(--red);
+    border-radius: 0 12px 12px 0;
+    padding: 14px 18px; margin-bottom: 10px;
+  }
+  .violation .icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+  .violation .label { font-size: 14px; font-weight: 700; color: var(--white); margin-bottom: 3px; }
+  .violation .detail { font-size: 12px; color: var(--muted); }
+  .violation .amount { margin-left: auto; text-align: right; flex-shrink: 0; }
+  .violation .billed { font-size: 13px; text-decoration: line-through; color: var(--muted); }
+  .violation .fair   { font-size: 14px; font-weight: 700; color: var(--green); }
+
+  /* ── ARCHITECTURE SVG ── */
+  .arch-box {
+    background: var(--navy2);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px; padding: 10px 16px;
+    font-size: 12px; font-weight: 600;
+    text-align: center; color: var(--white);
+  }
+
+  /* ── QUOTE ── */
+  .quote {
+    font-size: clamp(20px, 2.8vw, 36px);
+    font-weight: 800; line-height: 1.3;
+    text-align: center; color: var(--white);
+    letter-spacing: -0.5px;
+  }
+  .quote span { color: var(--red); }
+
+  /* ── TIMELINE ── */
+  .timeline {
+    display: flex; gap: 0; width: 100%;
+    align-items: stretch;
+  }
+  .tl-item {
+    flex: 1; position: relative;
+    padding: 20px 16px 20px 20px;
+    background: var(--navy2);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 0;
+  }
+  .tl-item:first-child { border-radius: 12px 0 0 12px; }
+  .tl-item:last-child  { border-radius: 0 12px 12px 0; }
+  .tl-item + .tl-item  { border-left: none; }
+  .tl-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; }
+  .tl-item ul { list-style: none; }
+  .tl-item ul li { font-size: 12px; color: var(--muted); margin-bottom: 7px; line-height: 1.4; padding-left: 14px; position: relative; }
+  .tl-item ul li::before { content: '→'; position: absolute; left: 0; color: var(--navy3); }
+
+  /* ── LOGO ── */
+  .logo {
+    font-size: 28px; font-weight: 900;
+    letter-spacing: -1px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .logo .shield { font-size: 34px; }
+
+  /* MAP PIN VISUAL */
+  .map-pins {
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+    margin-top: 16px;
+  }
+  .pin {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--navy2); border-radius: 999px;
+    padding: 8px 16px; font-size: 13px; font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .pin-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── SLIDE-SPECIFIC ── */
+
+  /* S1 */
+  #s1 { text-align: center; }
+  #s1 h1 { font-size: clamp(36px, 5.5vw, 72px); }
+  #s1 .sub { font-size: clamp(16px, 2vw, 24px); color: var(--muted); margin-bottom: 40px; }
+  #s1 .bill-preview {
+    background: var(--navy2);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; padding: 24px 32px;
+    text-align: left; max-width: 420px;
+    margin: 0 auto;
+  }
+  #s1 .bill-row { display: flex; justify-content: space-between; font-size: 14px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  #s1 .bill-row.legal { color: #CBD5E1; }
+  #s1 .bill-row.illegal { color: var(--red); font-weight: 700; background: rgba(239,68,68,0.08); margin: 0 -8px; padding: 6px 8px; border-radius: 6px; }
+  #s1 .bill-row.total { font-weight: 800; color: var(--white); font-size: 16px; border-bottom: none; margin-top: 4px; }
+  #s1 .bill-tag { display: inline-block; background: rgba(239,68,68,0.15); color: var(--red); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
+
+  /* S12 */
+  #s12 { text-align: center; background: radial-gradient(ellipse at center, rgba(239,68,68,0.08) 0%, transparent 70%); }
+
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+<div id="slide-num"></div>
+<button class="nav-btn" id="prev">‹</button>
+<button class="nav-btn" id="next">›</button>
+
+<div class="deck">
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SLIDE 0 — TITLE -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="slide" id="s0" style="text-align:center; background: radial-gradient(ellipse at 60% 40%, rgba(139,92,246,0.12) 0%, transparent 60%), radial-gradient(ellipse at 30% 70%, rgba(239,68,68,0.08) 0%, transparent 55%);">
+
+    <!-- Hackathon context -->
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:48px;">
+      <span style="font-size:11px; font-weight:700; letter-spacing:3px; text-transform:uppercase; color:var(--muted)">AIVENTRA HACKATHON 2026</span>
+      <span style="width:4px; height:4px; border-radius:50%; background:var(--navy3)"></span>
+      <span style="font-size:11px; font-weight:700; letter-spacing:3px; text-transform:uppercase; color:var(--muted)">IDEA SUBMISSION</span>
+    </div>
+
+    <!-- Logo -->
+    <div style="display:flex; align-items:center; gap:16px; margin-bottom:28px;">
+      <span style="font-size:64px; filter:drop-shadow(0 0 24px rgba(139,92,246,0.5))">🛡️</span>
+      <span style="font-size:clamp(52px,7vw,80px); font-weight:900; letter-spacing:-3px;">BillGuard</span>
+    </div>
+
+    <!-- One-line pitch -->
+    <div style="font-size:clamp(17px,2.2vw,26px); color:#CBD5E1; font-weight:400; max-width:680px; line-height:1.5; margin-bottom:48px;">
+      AI-powered billing fraud detection for India —<br/>
+      <span style="color:var(--white); font-weight:700;">know exactly what you owe, and what you don't.</span>
+    </div>
+
+    <!-- Context pills -->
+    <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-bottom:56px;">
+      <div style="display:flex;align-items:center;gap:8px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);border-radius:999px;padding:8px 18px;">
+        <span style="font-size:16px">🏥</span>
+        <span style="font-size:13px;font-weight:600;color:#FCA5A5;">Hospital Bills</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25);border-radius:999px;padding:8px 18px;">
+        <span style="font-size:16px">🍽️</span>
+        <span style="font-size:13px;font-weight:600;color:#FCD34D;">Restaurant Bills</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.25);border-radius:999px;padding:8px 18px;">
+        <span style="font-size:16px">📱</span>
+        <span style="font-size:13px;font-weight:600;color:#93C5FD;">Food Delivery</span>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div style="width:1px;height:48px;background:linear-gradient(to bottom,rgba(255,255,255,0.15),transparent);margin-bottom:20px;"></div>
+
+    <!-- Bottom row -->
+    <div style="display:flex;align-items:center;gap:32px;color:var(--muted);font-size:13px;font-weight:500;">
+      <span>🐙 github.com/Koushik-kanneti/billguard</span>
+      <span style="width:4px;height:4px;border-radius:50%;background:var(--navy3)"></span>
+      <span>⚡ Live Prototype</span>
+      <span style="width:4px;height:4px;border-radius:50%;background:var(--navy3)"></span>
+      <span>🆓 Built on free-tier infrastructure</span>
+    </div>
+  </div>
+
+  <!-- SLIDE 1 — HOOK -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="slide" id="s1">
+    <div class="tag">The Problem Nobody Talks About</div>
+    <h1>You paid ₹2,400 for dinner.<br/><span class="red-hl">₹400 of it was illegal.</span></h1>
+    <p class="sub">Most Indians never find out.</p>
+    <div class="bill-preview">
+      <div style="font-size:13px; font-weight:700; color:var(--muted); margin-bottom:14px; letter-spacing:1px;">SAMPLE RESTAURANT BILL</div>
+      <div class="bill-row legal"><span>Butter Chicken</span><span>₹380</span></div>
+      <div class="bill-row legal"><span>Paneer Tikka</span><span>₹320</span></div>
+      <div class="bill-row legal"><span>Diet Coke × 2</span><span><span style="text-decoration:line-through;color:var(--muted)">₹160</span> ₹80 <span class="bill-tag">MRP ₹80!</span></span></div>
+      <div class="bill-row illegal"><span>Service Charge (10%) <span class="bill-tag">BANNED</span></span><span>₹150</span></div>
+      <div class="bill-row legal" style="color:var(--muted)"><span>GST @ 5%</span><span>₹32</span></div>
+      <div class="bill-row illegal"><span>GST on Service Charge <span class="bill-tag">ILLEGAL</span></span><span>₹29</span></div>
+      <div class="bill-row total"><span>Total</span><span>₹2,391</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SLIDE 2 — PROBLEM: RESTAURANTS -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="slide" id="s2">
+    <div style="width:100%">
+      <div class="tag">Problem — Part 1</div>
+      <h2>Restaurants are charging fees that were<br/><span class="red-hl">banned by law in 2022.</span></h2>
+      <div class="divider"></div>
+      <div class="violation">
+        <div class="icon">⚖️</div>
+        <div>
+          <div class="label">Service Charge — Banned under CCPA 2022</div>
+          <div class="detail">The Central Consumer Protection Authority issued a directive in Aug 2022. Still charged by 80%+ of metro restaurants.</div>
+        </div>
+        <div class="amount"><div class="billed">₹150</div><div class="fair">₹0 due</div></div>
+      </div>
+      <div class="violation">
+        <div class="icon">📊</div>
+        <div>
+          <div class="label">GST Calculated on Service Charge</div>
+          <div class="detail">GST must be computed on food subtotal only. Charging GST on a banned fee compounds the illegality.</div>
+        </div>
+        <div class="amount"><div class="billed">₹29 extra</div><div class="fair">₹0 due</div></div>
+      </div>
+      <div class="violation">
+        <div class="icon">🥤</div>
+        <div>
+          <div class="label">Soft Drinks Sold Above MRP</div>
+          <div class="detail">Legal Metrology Act prohibits selling packaged goods above printed MRP. Coke 330ml MRP ≈ ₹40. Common billing: ₹80–120.</div>
+        </div>
+        <div class="amount"><div class="billed">₹80</div><div class="fair">₹40 fair</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SLIDE 3 — PROBLEM: HOSPITALS -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="slide" id="s3">
+    <div style="width:100%">
+      <div class="tag">Problem — Part 2</div>
+      <h2>When you're most vulnerable,<br/>the bill is <span class="red-hl">most opaque.</span></h2>
+      <div class="divider"></div>
+      <div class="grid-2" style="margin-top:8px">
+        <div>
+          <div class="violation" style="margin-bottom:10px">
+            <div class="icon">💊</div>
+            <div>
+              <div class="label">Drugs above NPPA ceiling</div>
+              <div class="detail">National Pharmaceutical Pricing Authority caps prices on 800+ essential medicines. Commonly inflated by 2–5×.</div>
+            </div>
+          </div>
+          <div class="violation" style="margin-bottom:10px">
+            <div class="icon">📦</div>
+            <div>
+              <div class="label">Package procedures billed twice</div>
+              <div class="detail">Consumables included in a surgical package get billed again as individual line items.</div>
+            </div>
+          </div>
+          <div class="violation">
+            <div class="icon">📄</div>
+            <div>
+              <div class="label">TPA "disallowed" columns ignored</div>
+              <div class="detail">Insurance settlement docs show disallowed amounts — hospitals collect them anyway from confused patients.</div>
+            </div>
+          </div>
+        </div>
+        <div class="card red-border" style="display:flex;flex-direction:column;justify-content:center;text-align:center;">
+          <div style="font-size:40px;margin-bottom:12px">🏥</div>
+          <div class="stat-num red-hl">₹67,000</div>
+          <div class="stat-label">Wrongly collected from a Chennai patient<br/>for an implant marked "disallowed"<br/>by the insurer</div>
+          <div style="margin-top:20px;font-size:13px;color:var(--muted);font-style:italic">"She paid because she didn't know<br/>what the column meant."</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SLIDE 4 — WHY NOTHING HAS CHANGED -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="slide" id="s4">
+    <div style="width:100%; text-align:center">
+      <div class="tag">The Gap</div>
+      <h2>The laws exist.<br/>The <span class="red-hl">tools don't.</span></h2>
+      <div class="divider center"></div>
+      <div class="grid-3" style="margin-top: 24px">
+        <div class="card">
+          <div style="font-size:36px;margin-bottom:14px">📚</div>
+          <h3>Laws are strong</h3>
+          <p>CCPA 2022, GST Act, Legal Metrology Act, NPPA, Clinical Establishments Act — India's consumer protection framework is comprehensive.</p>
+        </div>
+        <div class="card red-border">
+          <div style="font-size:36px;margin-bottom:14px">😶</div>
+          <h3 class="red-hl">Awareness is zero</h3>
+          <p>Most consumers don't know a single law by name. They pay the bill and leave — because they have no way to verify it in real time.</p>
+        </div>
+        <div class="card">
+          <div style="font-size:36px;margin-bottom:14px">🐢</div>
+          <h3>Courts are slow</h3>
+          <p>Consumer courts take 12–36 months. By the time a ruling comes, the pattern has continued for thousands of other customers.</p>
+        </div>
+      </div>
+      <div class="quote" style="margin-top:32px; font-size:clamp(16px,2vw,24px)">
+        "There is no Google Maps for billing fraud. <span>Until now.</span>"
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SLIDE 5 — SOLUTION -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="slide" id="s5">
+    <div style="width:100%;text-align:center">
+      <div class="tag green">The Solution</div>
+      <div class="logo" style="justify-content:center;margin-bottom:16px">
+        <span class="shield">🛡️</span>
+        <span>BillGuard</span>
+      </div>
+      <p class="big-p" style="max-width:680px;margin:0 auto 36px">
+        An AI-powered billing fraud detector that reads any Indian bill,<br/>
+        flags every illegal charge, cites the exact law, and tells you<br/>
+        <span class="highlight">precisely what to say to get your money back.</span>
+      </p>
+      <div class="step-flow">
+        <div class="step">
+          <div class="step-icon">📸</div>
+          <div class="step-title">Upload Bill</div>
+          <div class="step-desc">Photo, PDF, or paste text. Live camera with quality check.</div>
+        </div>
+        <div class="step-arrow">›</div>
+        <div class="step">
+          <div class="step-icon">🔍</div>
+          <div class="step-title">AI Analyzes</div>
+          <div class="step-desc">Gemini Vision reads every line. Rules engine cross-checks Indian law.</div>
+        </div>
+        <div class="step-arrow">›</div>
+        <div class="step">
+          <div class="step-icon">⚠️</div>
+          <div class="step-title">Violations Flagged</div>
+          <div class="step-desc">Every illegal charge shown with rupee amount + law cited.</div>
+        </div>
+        <div class="step-arrow">›</div>
+        <div class="step">
+          <div class="step-icon">🗺️</div>
+          <div class="step-title">Scam Map Pinned</div>
+          <div class="step-desc">Business auto-geocoded and added to the crowd-sourced fraud map.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SLIDE 6 — DEMO FLOW -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="slide" id="s6">
+    <div style="width:100%">
+      <div class="tag blue">Product in Action</div>
+      <h2><span class="blue-hl">60 seconds</span> from bill to clarity.</h2>
+      <div class="grid-2" style="margin-top:16px; align-items:start">
+        <div>
+          <div class="card blue-border" style="margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+              <span style="font-size:22px">📸</span>
+              <span style="font-weight:700;font-size:15px">Step 1 — Capture</span>
+            </div>
+            <p style="font-size:13px">Select bill type (Hospital / Restaurant / Online Order). Upload a photo or use live camera. App rejects blurry images with real-time blur detection before wasting an API call.</p>
+          </div>
+          <div class="card blue-border" style="margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+              <span style="font-size:22px">🧠</span>
+              <span style="font-weight:700;font-size:15px">Step 2 — Analysis</span>
+            </div>
+            <p style="font-size:13px">Gemini Vision reads every character. A rule engine built from Indian law checks each charge. Server recalculates math — never trusts the AI's arithmetic.</p>
+          </div>
+        </div>
+        <div>
+          <div class="card red-border" style="margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+              <span style="font-size:22px">⚠️</span>
+              <span style="font-weight:700;font-size:15px">Step 3 — Your Report</span>
+            </div>
+            <div style="background:rgba(239,68,68,0.08);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+              <div style="font-size:13px;font-weight:800;color:var(--red);margin-bottom:6px">⚠️ HIGH RISK — ₹259 overcharged</div>
+              <div style="font-size:12px;color:var(--muted)">Service Charge: ₹150 → ₹0 <span style="color:var(--red)">(CCPA 2022)</span></div>
+              <div style="font-size:12px;color:var(--muted)">Diet Coke × 2: ₹160 → ₹80 <span style="color:var(--red)">(MRP violation)</span></div>
+              <div style="font-size:12px;color:var(--muted)">Extra GST: ₹29 → ₹0 <span style="color:var(--red)">(on banned charge)</span></div>
+            </div>
+            <p style="font-size:12px;color:var(--muted)">Each flag: what to say, which helpline to call, what form to file.</p>
+          </div>
+          <div class="card green-border">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+              <span style="font-size:22px">🗺️</span>
+              <span style="font-weight:700;font-size:15px">Step 4 — Scam Map</span>
+            </div>
+            <p style="font-size:13px">Business name + address extracted automatically from the bill. Geocoded and pinned. If 10 others flagged the same place — the pin glows red.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SLIDE 7 — INNOVATION -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="slide" id="s7">
+    <div style="width:100%;text-align:center">
+      <div class="tag purple">What Makes This Different</div>
+      <h2>Not just OCR. Not just AI.<br/><span class="purple-hl" style="color:var(--purple)">Legal awareness at scale.</span></h2>
+      <div class="divider center" style="background:var(--purple)"></div>
+      <div class="grid-3" style="margin-top:24px">
+        <div class="card purple-border" style="text-align:left">
+          <div style="font-size:36px;margin-bottom:14px">🧠</div>
+          <h3 style="color:var(--purple);margin-bottom:10px">AI + Rules + Law</h3>
+          <p>Three layers: Gemini Vision extracts data, a rule engine built from actual Indian statutes validates it, and every flag cites a specific law — not a guess.</p>
+          <div style="margin-top:14px">
+            <span class="badge purple">CCPA 2022</span>&nbsp;
+            <span class="badge purple">GST Act</span>&nbsp;
+            <span class="badge purple">NPPA</span>
+          </div>
+        </div>
+        <div class="card amber-border" style="text-align:left">
+          <div style="font-size:36px;margin-bottom:14px">🗺️</div>
+          <h3 style="color:var(--amber);margin-bottom:10px">Crowdsourced Intelligence</h3>
+          <p>Every report — anonymously — adds a data point to the Scam Map. Individual experience becomes collective protection. The app gets smarter with every scan.</p>
+          <div class="map-pins" style="margin-top:14px;justify-content:flex-start">
+            <div class="pin"><div class="pin-dot" style="background:var(--red)"></div>Repeat offender</div>
+            <div class="pin"><div class="pin-dot" style="background:var(--amber)"></div>Moderate risk</div>
+          </div>
+        </div>
+        <div class="card green-border" style="text-align:left">
+          <div style="font-size:36px;margin-bottom:14px">⚖️</div>
+          <h3 style="color:var(--green);margin-bottom:10px">Consumer Empowerment</h3>
+          <p>BillGuard doesn't just detect — it equips. Every flag includes: exact text to say to the manager, which helpline to call, which form to file.</p>
+          <div style="margin-top:14px;background:rgba(34,197,94,0.08);border-radius:8px;padding:10px;font-size:12px;color:var(--muted);font-style:italic">
+            "Say: Service charges are banned under CCPA 2022. Remove this or I file on consumerhelpline.gov.in"
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SLIDE 8 — ARCHITECTURE -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="slide" id="s8">
+    <div style="width:100%">
+      <div class="tag blue">Architecture</div>
+      <h2>Built lean. <span class="blue-hl">Built to scale.</span></h2>
+      <div style="margin-top:20px; width:100%">
+        <!-- Architecture Diagram -->
+        <svg viewBox="0 0 900 320" width="100%" style="max-height:320px" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+          <!-- USER -->
+          <rect x="330" y="4" width="240" height="44" rx="10" fill="#1E293B" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+          <text x="450" y="21" text-anchor="middle" fill="#94A3B8" font-size="10" font-weight="600" letter-spacing="1">USER</text>
+          <text x="450" y="36" text-anchor="middle" fill="#F8FAFC" font-size="12" font-weight="700">Web App / Mobile Browser</text>
+
+          <!-- Arrow down -->
+          <line x1="450" y1="48" x2="450" y2="68" stroke="#475569" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <polygon points="450,72 445,64 455,64" fill="#475569"/>
+
+          <!-- FASTAPI BOX -->
+          <rect x="200" y="72" width="500" height="50" rx="10" fill="#1E293B" stroke="rgba(59,130,246,0.4)" stroke-width="1.5"/>
+          <text x="450" y="91" text-anchor="middle" fill="#3B82F6" font-size="10" font-weight="700" letter-spacing="1">FASTAPI BACKEND</text>
+          <text x="310" y="109" text-anchor="middle" fill="#94A3B8" font-size="11">Image Preprocessor</text>
+          <text x="450" y="109" text-anchor="middle" fill="#94A3B8" font-size="11">Bill Type Router</text>
+          <text x="590" y="109" text-anchor="middle" fill="#94A3B8" font-size="11">Overcharge Calculator</text>
+
+          <!-- Arrow down from FastAPI -->
+          <line x1="450" y1="122" x2="450" y2="142" stroke="#475569" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <polygon points="450,146 445,138 455,138" fill="#475569"/>
+
+          <!-- GEMINI BOX -->
+          <rect x="300" y="146" width="300" height="44" rx="10" fill="#1E293B" stroke="rgba(139,92,246,0.4)" stroke-width="1.5"/>
+          <text x="450" y="164" text-anchor="middle" fill="#A78BFA" font-size="10" font-weight="700" letter-spacing="1">GEMINI VISION API</text>
+          <text x="450" y="179" text-anchor="middle" fill="#94A3B8" font-size="11">OCR · Extraction · Rule Prompt</text>
+
+          <!-- Arrow down from Gemini -->
+          <line x1="450" y1="190" x2="450" y2="210" stroke="#475569" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <polygon points="450,214 445,206 455,206" fill="#475569"/>
+
+          <!-- Three bottom boxes -->
+          <!-- Violation Report -->
+          <rect x="30" y="214" width="200" height="50" rx="10" fill="#1E293B" stroke="rgba(239,68,68,0.35)" stroke-width="1.5"/>
+          <text x="130" y="234" text-anchor="middle" fill="#F87171" font-size="10" font-weight="700">VIOLATION REPORT</text>
+          <text x="130" y="250" text-anchor="middle" fill="#94A3B8" font-size="11">Flags · Amounts · Laws</text>
+          <line x1="450" y1="214" x2="230" y2="239" stroke="#475569" stroke-width="1.2" stroke-dasharray="4,3"/>
+
+          <!-- SQLite -->
+          <rect x="350" y="214" width="200" height="50" rx="10" fill="#1E293B" stroke="rgba(245,158,11,0.35)" stroke-width="1.5"/>
+          <text x="450" y="234" text-anchor="middle" fill="#FCD34D" font-size="10" font-weight="700">SQLITE DATABASE</text>
+          <text x="450" y="250" text-anchor="middle" fill="#94A3B8" font-size="11">Reports · Businesses</text>
+          <line x1="450" y1="214" x2="450" y2="214" stroke="#475569" stroke-width="1.2"/>
+
+          <!-- Geocoder + Map -->
+          <rect x="670" y="214" width="200" height="50" rx="10" fill="#1E293B" stroke="rgba(34,197,94,0.35)" stroke-width="1.5"/>
+          <text x="770" y="234" text-anchor="middle" fill="#4ADE80" font-size="10" font-weight="700">NOMINATIM + LEAFLET</text>
+          <text x="770" y="250" text-anchor="middle" fill="#94A3B8" font-size="11">Geocode · Scam Map</text>
+          <line x1="450" y1="214" x2="670" y2="239" stroke="#475569" stroke-width="1.2" stroke-dasharray="4,3"/>
+
+          <!-- Bottom labels -->
+          <text x="450" y="295" text-anchor="middle" fill="#475569" font-size="11">Free tier · No paid infra · Model fallback chain: gemini-2.5-flash-lite → gemini-2.5-flash → gemini-2.0-flash → gemini-2.0-flash-lite</text>
+        </svg>
+      </div>
+      <div class="grid-3" style="margin-top:16px">
+        <div class="card" style="padding:14px 18px;text-align:center">
+          <div style="font-size:20px;margin-bottom:6px">🆓</div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px">Zero paid infra</div>
+          <div style="font-size:12px;color:var(--muted)">Gemini free API, SQLite, OpenStreetMap Nominatim</div>
+        </div>
+        <div class="card" style="padding:14px 18px;text-align:center">
+          <div style="font-size:20px;margin-bottom:6px">🔄</div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px">4-model fallback</div>
+          <div style="font-size:12px;color:var(--muted)">Quota hit on one model? Next fires automatically</div>
+        </div>
+        <div class="card" style="padding:14px 18px;text-align:center">
+          <div style="font-size:20px;margin-bottom:6px">✅</div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px">Fully working today</div>
+          <div style="font-size:12px;color:var(--muted)">Not a mockup — live prototype on GitHub</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SLIDE 9 — IMPACT -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="slide" id="s9">
+    <div style="width:100%;text-align:center">
+      <div class="tag green">Impact</div>
+      <h2>Small app. <span class="green-hl">Massive stakes.</span></h2>
+      <div class="divider center green"></div>
+      <div class="grid-3" style="margin-top:24px">
+        <div class="card green-border" style="text-align:center">
+          <div style="font-size:40px;margin-bottom:14px">👤</div>
+          <div class="stat-num green-hl">₹200–400</div>
+          <div class="stat-label" style="margin-bottom:12px">saved per restaurant visit</div>
+          <p>A family dining out twice a month saves ₹5,000–10,000 a year — just by knowing their rights.</p>
+        </div>
+        <div class="card amber-border" style="text-align:center">
+          <div style="font-size:40px;margin-bottom:14px">🏙️</div>
+          <div class="stat-num amber-hl">1.4B</div>
+          <div class="stat-label" style="margin-bottom:12px">potential users in India</div>
+          <p>Every Indian who eats out, visits a hospital, or orders food online is a potential user. The Scam Map compounds with scale.</p>
+        </div>
+        <div class="card red-border" style="text-align:center">
+          <div style="font-size:40px;margin-bottom:14px">🇮🇳</div>
+          <div class="stat-num red-hl">System-level</div>
+          <div class="stat-label" style="margin-bottom:12px">compliance pressure</div>
+          <p>When restaurants know their violations are being mapped and shared, the incentive to comply shifts — without waiting for slow regulation.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SLIDE 10 — FUTURE VISION -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="slide" id="s10">
+    <div style="width:100%">
+      <div class="tag purple">Future Vision</div>
+      <h2>This is Version 1.<br/><span style="color:var(--purple)">Here's where it goes.</span></h2>
+      <div class="timeline" style="margin-top:24px">
+        <div class="tl-item">
+          <div class="tl-label" style="color:var(--green)">✅ Now</div>
+          <ul>
+            <li>Web app — restaurant + hospital + online order</li>
+            <li>AI + rule engine + legal citations</li>
+            <li>Crowd-sourced Scam Map</li>
+            <li>Auto-geocoding from bill text</li>
+            <li>Live prototype on GitHub</li>
+          </ul>
+        </div>
+        <div class="tl-item">
+          <div class="tl-label" style="color:var(--blue)">6 Months</div>
+          <ul>
+            <li>Mobile app — live camera scan at table</li>
+            <li>WhatsApp bot: forward bill → get report</li>
+            <li>Hindi, Tamil, Telugu support</li>
+            <li>Pharmacy bills (DPCO pricing)</li>
+          </ul>
+        </div>
+        <div class="tl-item">
+          <div class="tl-label" style="color:var(--amber)">1 Year</div>
+          <ul>
+            <li>Real-time GST verification via GSTIN</li>
+            <li>National Consumer Helpline integration</li>
+            <li>Insurance fraud detection (TPA docs)</li>
+            <li>10 lakh bills analyzed</li>
+          </ul>
+        </div>
+        <div class="tl-item">
+          <div class="tl-label" style="color:var(--purple)">2 Years</div>
+          <ul>
+            <li>API for insurers to flag hospital fraud</li>
+            <li>Regulatory dashboard for CCPA / state health depts</li>
+            <li>India's first public billing fraud database</li>
+            <li>Billing transparency as a public good</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SLIDE 11 — WHY NOW / WHY US -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="slide" id="s11">
+    <div style="width:100%;text-align:center">
+      <div class="tag amber">Why Now. Why This.</div>
+      <h2>The law changed.<br/><span class="amber-hl">The tools didn't.</span></h2>
+      <div class="divider center" style="background:var(--amber)"></div>
+      <div class="grid-3" style="margin-top:24px; text-align:left">
+        <div class="card amber-border">
+          <div style="font-size:36px;margin-bottom:12px">⏱️</div>
+          <h3 style="color:var(--amber);margin-bottom:10px">Timing</h3>
+          <p>CCPA 2022 banned service charges. NPPA regulates drug prices. The legal framework exists — what's missing is a tool that makes those laws usable in real time.</p>
+        </div>
+        <div class="card amber-border">
+          <div style="font-size:36px;margin-bottom:12px">🤖</div>
+          <h3 style="color:var(--amber);margin-bottom:10px">Technology</h3>
+          <p>Gemini Vision makes bill OCR accurate enough to be actionable, not just indicative. This wasn't possible two years ago. It's possible now.</p>
+        </div>
+        <div class="card amber-border">
+          <div style="font-size:36px;margin-bottom:12px">🌐</div>
+          <h3 style="color:var(--amber);margin-bottom:10px">Network Effect</h3>
+          <p>Every new user makes the Scam Map more accurate for every other user. The value compounds. No single competitor can replicate two years of crowd data overnight.</p>
+        </div>
+      </div>
+      <div class="quote" style="margin-top:32px; font-size:clamp(14px,1.8vw,20px)">
+        "The best consumer protection law is one the consumer can <span>actually use.</span>"
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SLIDE 12 — CLOSING -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="slide" id="s12">
+    <div class="logo" style="margin-bottom:32px">
+      <span class="shield">🛡️</span>
+      <span style="font-size:36px">BillGuard</span>
+    </div>
+    <div class="quote" style="max-width:720px">
+      "Every Indian deserves to know if they're being cheated —<br/>
+      <span>before they leave the table.</span>"
+    </div>
+    <div style="display:flex;gap:40px;margin:40px 0">
+      <div style="text-align:center">
+        <div style="font-size:32px;margin-bottom:8px">📸</div>
+        <div style="font-size:13px;font-weight:600;color:var(--muted)">Scan any bill</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:32px;margin-bottom:8px">⚖️</div>
+        <div style="font-size:13px;font-weight:600;color:var(--muted)">Know your rights instantly</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:32px;margin-bottom:8px">🗺️</div>
+        <div style="font-size:13px;font-weight:600;color:var(--muted)">Protect your community</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+      <span class="badge green">✅ Live Prototype</span>
+      <span class="badge blue">🐙 github.com/Koushik-kanneti/billguard</span>
+      <span class="badge purple">🏆 AIVENTRA 2026</span>
+    </div>
+  </div>
+
+</div><!-- /deck -->
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const total = slides.length;
+  let current = 0;
+
+  function goTo(n) {
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit');
+    setTimeout(() => slides[current < n ? current : n + (current === n ? 0 : 0)].classList.remove('exit'), 500);
+
+    const prev = current;
+    current = Math.max(0, Math.min(n, total - 1));
+
+    slides[prev].classList.remove('active');
+    setTimeout(() => slides[prev].classList.remove('exit'), 500);
+    slides[current].classList.add('active');
+
+    document.getElementById('progress').style.width = ((current + 1) / total * 100) + '%';
+    document.getElementById('slide-num').textContent = (current + 1) + ' / ' + total;
+  }
+
+  // init
+  slides[0].classList.add('active');
+  document.getElementById('progress').style.width = (1 / total * 100) + '%';
+  document.getElementById('slide-num').textContent = '1 / ' + total;
+
+  document.getElementById('next').addEventListener('click', () => goTo(current + 1));
+  document.getElementById('prev').addEventListener('click', () => goTo(current - 1));
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') goTo(current + 1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp') goTo(current - 1);
+  });
+</script>
+</body>
+</html>

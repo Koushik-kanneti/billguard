@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BillGuard — Stop Billing Scams</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+    .flag-red    { border-left: 4px solid #ef4444; background: #fef2f2; }
+    .flag-yellow { border-left: 4px solid #f59e0b; background: #fffbeb; }
+    .flag-green  { border-left: 4px solid #22c55e; background: #f0fdf4; }
+    .tab-active  { background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.12); color: #2563eb; font-weight: 600; }
+    @keyframes spin    { to { transform: rotate(360deg); } }
+    @keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(10px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+    .spinner { animation: spin 1s linear infinite; display: inline-block; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen font-sans">
+
+<!-- Header -->
+<header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+  <div class="max-w-xl mx-auto px-4 py-3 flex items-center gap-3">
+    <div class="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center text-lg shrink-0">🛡️</div>
+    <div class="flex-1">
+      <div class="font-bold text-slate-800 leading-none">BillGuard</div>
+      <div class="text-xs text-slate-400">India's billing scam detector</div>
+    </div>
+    <a href="/map" class="flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50
+       border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors shrink-0">
+      🗺️ Scam Map
+    </a>
+  </div>
+</header>
+
+<main class="max-w-xl mx-auto px-4 py-6 space-y-5">
+
+  <!-- Step 1: Bill Type -->
+  <section>
+    <div class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Step 1 — Select Bill Type</div>
+    <div class="grid grid-cols-3 gap-3">
+      <button onclick="selectType('hospital')" id="btn-hospital"
+        class="type-btn text-left p-4 rounded-2xl border-2 border-slate-200 hover:border-blue-400 transition-all bg-white">
+        <div class="text-2xl mb-1">🏥</div>
+        <div class="font-semibold text-slate-800 text-sm">Hospital Bill</div>
+        <div class="text-xs text-slate-400 mt-0.5">Medicines, tests, ICU</div>
+      </button>
+      <button onclick="selectType('restaurant')" id="btn-restaurant"
+        class="type-btn text-left p-4 rounded-2xl border-2 border-slate-200 hover:border-blue-400 transition-all bg-white">
+        <div class="text-2xl mb-1">🍽️</div>
+        <div class="font-semibold text-slate-800 text-sm">Restaurant Bill</div>
+        <div class="text-xs text-slate-400 mt-0.5">Service charge, GST</div>
+      </button>
+      <button onclick="selectType('online_order')" id="btn-online_order"
+        class="type-btn text-left p-4 rounded-2xl border-2 border-slate-200 hover:border-blue-400 transition-all bg-white">
+        <div class="text-2xl mb-1">📱</div>
+        <div class="font-semibold text-slate-800 text-sm">Online Order</div>
+        <div class="text-xs text-slate-400 mt-0.5">Swiggy, Zomato, Dineout</div>
+      </button>
+    </div>
+  </section>
+
+  <!-- Step 2: Provide Bill -->
+  <section id="input-section" class="hidden">
+    <div class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Step 2 — Provide Bill</div>
+
+    <!-- Tab switcher -->
+    <div class="flex bg-slate-100 rounded-xl p-1 mb-4 gap-1">
+      <button onclick="switchTab('camera')" id="tab-camera" class="tab-btn flex-1 py-2 px-2 rounded-lg text-sm text-slate-500 transition-all">📷 Camera</button>
+      <button onclick="switchTab('upload')" id="tab-upload" class="tab-btn flex-1 py-2 px-2 rounded-lg text-sm text-slate-500 transition-all">📁 Upload</button>
+      <button onclick="switchTab('text')"   id="tab-text"   class="tab-btn flex-1 py-2 px-2 rounded-lg text-sm text-slate-500 transition-all">✏️ Type</button>
+    </div>
+
+    <!-- Camera pane -->
+    <div id="pane-camera" class="tab-pane hidden">
+      <div class="relative bg-black rounded-2xl overflow-hidden" style="aspect-ratio:4/3">
+        <video id="video" autoplay playsinline class="w-full h-full object-cover"></video>
+        <canvas id="overlay"></canvas>
+      </div>
+      <p id="lighting-feedback" class="text-slate-400 text-sm text-center mt-2">Starting camera…</p>
+      <button id="capture-btn" onclick="captureImage()" disabled
+        class="w-full mt-3 bg-blue-600 text-white py-3 rounded-xl font-semibold
+               disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors">
+        📸 Capture Bill
+      </button>
+      <div id="cam-preview" class="hidden mt-3">
+        <img id="cam-preview-img" class="w-full rounded-xl border border-slate-200" alt="Captured" />
+        <button onclick="resetCamera()" class="mt-2 text-sm text-blue-600 hover:underline">↩ Retake</button>
+      </div>
+    </div>
+
+    <!-- Upload pane -->
+    <div id="pane-upload" class="tab-pane hidden">
+      <label for="file-input" id="drop-zone"
+        class="flex flex-col items-center justify-center border-2 border-dashed border-slate-300
+               rounded-2xl p-10 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all bg-white">
+        <div class="text-4xl mb-3">📄</div>
+        <div class="font-semibold text-slate-600">Click to upload bill</div>
+        <div class="text-xs text-slate-400 mt-1">JPG, PNG supported</div>
+      </label>
+      <input type="file" id="file-input" accept="image/*" class="hidden" onchange="handleUpload(event)" />
+      <div id="upload-preview" class="hidden mt-3">
+        <img id="upload-img" class="w-full rounded-xl border border-slate-200" alt="Uploaded" />
+        <span id="quality-badge"></span>
+        <button onclick="resetUpload()" class="mt-2 text-sm text-blue-600 hover:underline block">↩ Change file</button>
+      </div>
+    </div>
+
+    <!-- Text pane -->
+    <div id="pane-text" class="tab-pane hidden">
+      <textarea id="bill-text" rows="9" oninput="refreshAnalyzeBtn()"
+        placeholder="Paste or type bill details here…&#10;&#10;Example:&#10;Paneer Butter Masala   ₹320&#10;Naan x2               ₹80&#10;Service Charge (10%)  ₹40&#10;GST @ 12%             ₹52&#10;Total                 ₹492"
+        class="w-full border border-slate-200 rounded-2xl p-4 text-sm bg-white
+               focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"></textarea>
+    </div>
+
+    <!-- Analyze button -->
+    <button id="analyze-btn" onclick="runAnalysis()" disabled
+      class="w-full mt-4 bg-blue-600 text-white py-4 rounded-2xl font-bold text-base
+             disabled:opacity-40 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors
+             shadow-lg shadow-blue-100">
+      🔍 Analyze Bill
+    </button>
+  </section>
+
+  <!-- Loading -->
+  <section id="loading-section" class="hidden text-center py-14">
+    <div class="text-5xl spinner mb-4">🔍</div>
+    <div class="font-bold text-slate-700 text-lg">Analyzing your bill…</div>
+    <div class="text-sm text-slate-400 mt-1">Checking against Indian billing laws</div>
+  </section>
+
+  <!-- Results -->
+  <section id="results-section" class="hidden space-y-4">
+
+    <!-- Risk banner -->
+    <div id="risk-banner" class="p-5 rounded-2xl text-white">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div id="risk-label" class="text-xl font-bold"></div>
+          <div id="risk-sub"   class="text-sm opacity-80 mt-0.5"></div>
+        </div>
+        <div class="text-right shrink-0">
+          <div class="text-xs opacity-75">Estimated overcharge</div>
+          <div id="overcharge" class="text-3xl font-bold mt-0.5"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+      <p id="summary" class="text-slate-700 text-sm leading-relaxed"></p>
+    </div>
+
+    <!-- Flags -->
+    <div>
+      <div class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Issues Found</div>
+      <div id="flags" class="space-y-3"></div>
+    </div>
+
+    <!-- Rights -->
+    <div class="bg-blue-50 rounded-2xl p-4 border border-blue-100">
+      <div class="font-semibold text-blue-800 mb-3 text-sm">⚖️ Your Legal Rights</div>
+      <ul id="rights" class="space-y-1.5 text-sm text-blue-700"></ul>
+    </div>
+
+    <!-- Next steps -->
+    <div class="bg-green-50 rounded-2xl p-4 border border-green-100">
+      <div class="font-semibold text-green-800 mb-3 text-sm">✅ What To Do Next</div>
+      <ol id="steps" class="space-y-1.5 text-sm text-green-700 list-decimal list-inside"></ol>
+    </div>
+
+    <!-- Helpline -->
+    <div class="bg-slate-800 rounded-2xl p-4 text-center">
+      <div class="text-xs text-slate-400 mb-1">Consumer Helpline</div>
+      <div id="helpline" class="text-xl font-bold text-white"></div>
+      <div class="text-xs text-slate-400 mt-1">Toll-free · 24×7</div>
+    </div>
+
+    <!-- Report to Scam Map -->
+    <div id="report-card" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <div class="font-semibold text-slate-800 text-sm">📍 Add to Scam Map</div>
+          <div class="text-xs text-slate-400 mt-0.5">Help others by sharing where this happened</div>
+        </div>
+        <div id="confidence-badge" class="hidden shrink-0"></div>
+      </div>
+      <div id="confidence-hint" class="hidden text-xs px-3 py-2 rounded-xl"></div>
+      <div class="space-y-2">
+        <div>
+          <label class="text-xs text-slate-500 font-medium mb-1 block">Business Name</label>
+          <input id="report-name" type="text" placeholder="e.g. PizzaExpress HAL"
+            class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all" />
+        </div>
+        <div>
+          <label class="text-xs text-slate-500 font-medium mb-1 block">Address</label>
+          <input id="report-address" type="text" placeholder="e.g. 12th Road, Bangalore"
+            class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all" />
+        </div>
+      </div>
+      <button onclick="submitReport()"
+        class="w-full bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold
+               hover:bg-blue-700 transition-colors">
+        📤 Save to Map
+      </button>
+      <div id="report-status" class="hidden text-xs text-center font-medium py-1.5 rounded-xl"></div>
+    </div>
+
+    <!-- Scan again -->
+    <button onclick="resetAll()"
+      class="w-full border-2 border-blue-500 text-blue-600 py-3 rounded-2xl font-semibold
+             hover:bg-blue-50 transition-colors">
+      🔄 Scan Another Bill
+    </button>
+  </section>
+
+</main>
+
+<script src="/static/camera.js"></script>
+<script>
+  let billType = null;
+  let activeTab = null;
+  let cameraData = null;
+  let uploadData = null;
+  let billCamera = null;
+  let lastAnalysis = null;
+
+  // ── Bill type ──────────────────────────────────────────────
+  function selectType(type) {
+    billType = type;
+    document.querySelectorAll(".type-btn").forEach((b) => {
+      b.classList.remove("border-blue-600", "bg-blue-50");
+      b.classList.add("border-slate-200");
+    });
+    const btn = document.getElementById(`btn-${type}`);
+    btn.classList.add("border-blue-600", "bg-blue-50");
+    btn.classList.remove("border-slate-200");
+
+    show("input-section");
+    if (!activeTab) switchTab("camera");
+  }
+
+  // ── Tabs ───────────────────────────────────────────────────
+  function switchTab(tab) {
+    if (activeTab === "camera" && tab !== "camera") stopCamera();
+    activeTab = tab;
+
+    document.querySelectorAll(".tab-btn").forEach((b) => {
+      b.classList.remove("tab-active");
+      b.classList.add("text-slate-500");
+    });
+    document.querySelectorAll(".tab-pane").forEach((p) => p.classList.add("hidden"));
+
+    const btn = document.getElementById(`tab-${tab}`);
+    btn.classList.add("tab-active");
+    btn.classList.remove("text-slate-500");
+    document.getElementById(`pane-${tab}`).classList.remove("hidden");
+
+    if (tab === "camera") startCamera();
+    refreshAnalyzeBtn();
+  }
+
+  // ── Camera ─────────────────────────────────────────────────
+  async function startCamera() {
+    const video = document.getElementById("video");
+    const overlay = document.getElementById("overlay");
+    const feedback = document.getElementById("lighting-feedback");
+    const captureBtn = document.getElementById("capture-btn");
+    billCamera = new BillCamera(video, overlay, feedback, captureBtn);
+    const ok = await billCamera.start();
+    if (!ok) {
+      // Camera failed — show message then auto-switch to upload after 2s
+      feedback.textContent = "📁 Camera needs HTTPS — switching to Upload (or open via localhost)";
+      feedback.className = "text-yellow-500 text-sm text-center mt-2";
+      setTimeout(() => switchTab("upload"), 2000);
+    }
+  }
+
+  function stopCamera() {
+    if (billCamera) { billCamera.stop(); billCamera = null; }
+  }
+
+  function captureImage() {
+    if (!billCamera) return;
+    cameraData = billCamera.capture();
+    document.getElementById("cam-preview-img").src = "data:image/jpeg;base64," + cameraData;
+    show("cam-preview");
+    document.getElementById("capture-btn").classList.add("hidden");
+    stopCamera();
+    refreshAnalyzeBtn();
+  }
+
+  function resetCamera() {
+    cameraData = null;
+    hide("cam-preview");
+    document.getElementById("capture-btn").classList.remove("hidden");
+    document.getElementById("capture-btn").disabled = true;
+    refreshAnalyzeBtn();
+    startCamera();
+  }
+
+  // ── Upload ─────────────────────────────────────────────────
+  function _blurScore(imgEl) {
+    const S = 80;
+    const c = document.createElement("canvas");
+    c.width = S; c.height = S;
+    const cx = c.getContext("2d");
+    cx.drawImage(imgEl, 0, 0, S, S);
+    const d = cx.getImageData(0, 0, S, S).data;
+    const gray = new Float32Array(S * S);
+    for (let i = 0; i < S * S; i++)
+      gray[i] = 0.299*d[i*4] + 0.587*d[i*4+1] + 0.114*d[i*4+2];
+    let sum = 0, sumSq = 0, n = 0;
+    for (let y = 1; y < S-1; y++) {
+      for (let x = 1; x < S-1; x++) {
+        const v = 4*gray[y*S+x] - gray[(y-1)*S+x] - gray[(y+1)*S+x]
+                  - gray[y*S+x-1] - gray[y*S+x+1];
+        sum += v; sumSq += v*v; n++;
+      }
+    }
+    const m = sum/n;
+    return sumSq/n - m*m;
+  }
+
+  // Resize + compress image to max 1200px, JPEG 0.82 quality
+  function _compressImage(file, callback) {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 1200;
+        let { width: w, height: h } = img;
+        if (Math.max(w, h) > MAX) {
+          const ratio = MAX / Math.max(w, h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        callback(c.toDataURL("image/jpeg", 0.82), img);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    _compressImage(file, (dataUrl, imgEl) => {
+      uploadData = dataUrl.split(",")[1];
+      const previewImg = document.getElementById("upload-img");
+      previewImg.src = dataUrl;
+      const score = _blurScore(imgEl);
+      const badge = document.getElementById("quality-badge");
+      if (score < 20) {
+        badge.textContent = "⚠️ Blurry image — server will enhance it, but a sharper photo gives better results";
+        badge.className = "text-xs text-yellow-600 mt-1 text-center block";
+      } else {
+        badge.textContent = "✅ Image quality looks good";
+        badge.className = "text-xs text-green-600 mt-1 text-center block";
+      }
+      show("upload-preview");
+      hide("drop-zone");
+      refreshAnalyzeBtn();
+    });
+  }
+
+  function resetUpload() {
+    uploadData = null;
+    hide("upload-preview");
+    show("drop-zone");
+    document.getElementById("file-input").value = "";
+    refreshAnalyzeBtn();
+  }
+
+  // ── Analyze ────────────────────────────────────────────────
+  function refreshAnalyzeBtn() {
+    const hasImage = cameraData || uploadData;
+    const hasText = (document.getElementById("bill-text").value || "").trim().length > 15;
+    document.getElementById("analyze-btn").disabled =
+      !(billType && (hasImage || (activeTab === "text" && hasText)));
+  }
+
+  async function runAnalysis() {
+    hide("input-section");
+    show("loading-section");
+    hide("results-section");
+
+    const fd = new FormData();
+    fd.append("bill_type", billType);
+
+    if (activeTab === "camera" && cameraData)       fd.append("image_base64", cameraData);
+    else if (activeTab === "upload" && uploadData)  fd.append("image_base64", uploadData);
+    else fd.append("bill_text", document.getElementById("bill-text").value);
+
+    try {
+      const res = await fetch("/analyze", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.error) renderError(data.error);
+      else renderResults(data);
+    } catch (err) {
+      renderError(err.message);
+    }
+  }
+
+  // ── Render results ─────────────────────────────────────────
+  function renderResults(d) {
+    lastAnalysis = d;
+    hide("loading-section");
+    show("results-section");
+    show("report-card");
+    hide("report-status");
+    // Reset field highlight classes before auto-fill
+    ["report-name","report-address"].forEach(id => {
+      document.getElementById(id).className =
+        "w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all";
+    });
+    showExtractionConfidence(
+      d.extraction_confidence,
+      d.business_name_detected,
+      d.business_address_detected
+    );
+
+    const risk = (d.risk_level || "clean").toLowerCase();
+    const cfg = {
+      high:   { cls: "bg-red-500",    label: "⚠️ HIGH RISK",    sub: "Serious billing violations detected" },
+      medium: { cls: "bg-orange-400", label: "⚡ MEDIUM RISK",  sub: "Questionable charges found" },
+      low:    { cls: "bg-yellow-500", label: "🔔 LOW RISK",     sub: "Minor issues detected" },
+      clean:  { cls: "bg-green-500",  label: "✅ BILL LOOKS CLEAN", sub: "No major violations found" },
+    }[risk] || { cls: "bg-slate-500", label: "📋 ANALYZED", sub: "" };
+
+    const banner = document.getElementById("risk-banner");
+    banner.className = `p-5 rounded-2xl text-white ${cfg.cls}`;
+    setText("risk-label", cfg.label);
+    setText("risk-sub",   cfg.sub);
+    setText("overcharge", d.estimated_overcharge > 0 ? `₹${d.estimated_overcharge}` : "₹0");
+    setText("summary",    d.summary || "");
+
+    // Flags
+    const flagsEl = document.getElementById("flags");
+    flagsEl.innerHTML = "";
+    if (!d.flags || d.flags.length === 0) {
+      flagsEl.innerHTML = `<div class="bg-white rounded-xl p-4 text-sm text-slate-500 border border-slate-100">No specific issues flagged.</div>`;
+    } else {
+      d.flags.forEach((f) => {
+        const cls   = { red: "flag-red", yellow: "flag-yellow", green: "flag-green" }[f.severity] || "flag-yellow";
+        const icon  = { red: "🔴", yellow: "🟡", green: "🟢" }[f.severity] || "🟡";
+        const amt   = f.billed_amount != null
+          ? `<span class="text-xs text-slate-500">Billed ₹${f.billed_amount}${f.fair_amount != null ? ` · Fair ₹${f.fair_amount}` : ""}</span>`
+          : "";
+        flagsEl.innerHTML += `
+          <div class="${cls} p-4 rounded-xl">
+            <div class="font-semibold text-slate-800 text-sm">${icon} ${f.item}</div>
+            ${amt}
+            <div class="text-sm text-slate-700 mt-1">${f.issue}</div>
+            <div class="text-xs text-slate-500 mt-1">📋 ${f.legal_basis}</div>
+            <div class="mt-2 inline-block text-xs font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg">→ ${f.action}</div>
+          </div>`;
+      });
+    }
+
+    // Rights
+    const rightsEl = document.getElementById("rights");
+    rightsEl.innerHTML = (d.your_rights || []).map((r) => `<li class="flex gap-2"><span>•</span><span>${r}</span></li>`).join("");
+
+    // Steps
+    const stepsEl = document.getElementById("steps");
+    stepsEl.innerHTML = (d.next_steps || []).map((s) => `<li>${s}</li>`).join("");
+
+    setText("helpline", d.helpline || "1800-11-4000");
+  }
+
+  function renderError(msg) {
+    lastAnalysis = null;
+    hide("loading-section");
+    show("results-section");
+    hide("report-card");
+    const banner = document.getElementById("risk-banner");
+    banner.className = "p-5 rounded-2xl text-white bg-slate-500";
+    setText("risk-label", "❌ Analysis Failed");
+    setText("risk-sub",   msg || "Unknown error");
+    setText("overcharge", "");
+    setText("summary", "Please check your connection and try again.");
+    document.getElementById("flags").innerHTML = "";
+    document.getElementById("rights").innerHTML = "";
+    document.getElementById("steps").innerHTML = "";
+    setText("helpline", "1800-11-4000");
+  }
+
+  // ── Extraction confidence UI ──────────────────────────────
+  function showExtractionConfidence(confidence, name, address) {
+    const badge   = document.getElementById("confidence-badge");
+    const hint    = document.getElementById("confidence-hint");
+    const nameEl  = document.getElementById("report-name");
+    const addrEl  = document.getElementById("report-address");
+
+    // Auto-fill whatever was found
+    if (name)    nameEl.value    = name;
+    if (address) addrEl.value   = address;
+
+    badge.classList.remove("hidden");
+
+    if (confidence === "high" && name && address) {
+      badge.innerHTML = `<span class="text-xs font-semibold text-green-700 bg-green-50
+        border border-green-200 px-2 py-1 rounded-lg">✓ Auto-detected</span>`;
+      hint.classList.add("hidden");
+      nameEl.classList.remove("ring-2","ring-yellow-400","ring-red-400");
+      addrEl.classList.remove("ring-2","ring-yellow-400","ring-red-400");
+      // Auto-save silently for high-confidence extractions
+      autoSaveToMap(name, address);
+    } else if (confidence === "medium" || (name && !address) || (!name && address)) {
+      badge.innerHTML = `<span class="text-xs font-semibold text-yellow-700 bg-yellow-50
+        border border-yellow-200 px-2 py-1 rounded-lg">⚠️ Verify details</span>`;
+      hint.textContent = "Some details were auto-filled — please review and correct if needed.";
+      hint.className   = "text-xs px-3 py-2 rounded-xl bg-yellow-50 text-yellow-800 border border-yellow-200";
+      hint.classList.remove("hidden");
+      if (!address) addrEl.classList.add("ring-2","ring-yellow-400");
+      if (!name)    nameEl.classList.add("ring-2","ring-yellow-400");
+    } else {
+      badge.innerHTML = `<span class="text-xs font-semibold text-slate-500 bg-slate-100
+        border border-slate-200 px-2 py-1 rounded-lg">✏️ Fill manually</span>`;
+      hint.textContent = "Could not read business details from the bill — please enter them below.";
+      hint.className   = "text-xs px-3 py-2 rounded-xl bg-slate-50 text-slate-600 border border-slate-200";
+      hint.classList.remove("hidden");
+      nameEl.classList.add("ring-2","ring-slate-300");
+      addrEl.classList.add("ring-2","ring-slate-300");
+    }
+  }
+
+  // ── Toast notification ────────────────────────────────────
+  function showToast(msg, type = "green") {
+    const colors = {
+      green:  "background:#052e16;color:#86efac;border:1px solid #166534",
+      yellow: "background:#422006;color:#fcd34d;border:1px solid #92400e",
+      red:    "background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d",
+    };
+    const t = document.createElement("div");
+    t.textContent = msg;
+    t.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+      ${colors[type]||colors.green};padding:10px 18px;border-radius:99px;
+      font-size:13px;font-weight:600;z-index:99999;
+      box-shadow:0 4px 20px rgba(0,0,0,.3);
+      animation:toastIn .25s ease;pointer-events:none`;
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity="0"; t.style.transition="opacity .3s";
+      setTimeout(() => t.remove(), 300); }, 3000);
+  }
+
+  // ── Auto-save (high confidence) ───────────────────────────
+  async function autoSaveToMap(name, address) {
+    const statusEl = document.getElementById("report-status");
+    const issues   = (lastAnalysis?.flags || []).map(f => f.item).filter(Boolean);
+    const fd = new FormData();
+    fd.append("business_name",        name);
+    fd.append("address",              address);
+    fd.append("bill_type",            lastAnalysis?.bill_type || billType || "restaurant");
+    fd.append("risk_level",           lastAnalysis?.risk_level || "low");
+    fd.append("estimated_overcharge", lastAnalysis?.estimated_overcharge || 0);
+    fd.append("issues",               JSON.stringify(issues));
+    try {
+      const res  = await fetch("/report", { method:"POST", body:fd });
+      const data = await res.json();
+      if (data.success) {
+        // Show saved state in report card
+        document.getElementById("report-card").innerHTML = `
+          <div class="flex items-center gap-3 py-1">
+            <div class="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center text-lg shrink-0">📍</div>
+            <div class="flex-1">
+              <div class="font-semibold text-slate-800 text-sm">Pinned to Scam Map</div>
+              <div class="text-xs text-slate-400 mt-0.5">${name} · ${address}</div>
+            </div>
+            <a href="/map" target="_blank"
+              class="text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200
+                     px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors shrink-0">
+              View →
+            </a>
+          </div>`;
+        showToast(data.geocoded ? "📍 Auto-pinned to Scam Map!" : "✅ Saved (couldn't geocode — check address)", data.geocoded ? "green" : "yellow");
+      }
+    } catch (e) { console.error("Auto-save failed:", e); }
+  }
+
+  // ── Report to Scam Map ────────────────────────────────────
+  async function submitReport() {
+    const name    = document.getElementById("report-name").value.trim();
+    const address = document.getElementById("report-address").value.trim();
+    const statusEl = document.getElementById("report-status");
+
+    if (!name || !address) {
+      statusEl.textContent = "⚠️ Please enter both business name and address.";
+      statusEl.className = "text-xs text-center font-medium py-1 rounded-lg text-yellow-700 bg-yellow-50";
+      statusEl.classList.remove("hidden");
+      return;
+    }
+
+    statusEl.textContent = "⏳ Saving and geocoding location…";
+    statusEl.className = "text-xs text-center font-medium py-1 rounded-lg text-slate-500 bg-slate-50";
+    statusEl.classList.remove("hidden");
+
+    const issues = (lastAnalysis?.flags || []).map(f => f.item).filter(Boolean);
+    const fd = new FormData();
+    fd.append("business_name", name);
+    fd.append("address", address);
+    fd.append("bill_type", lastAnalysis?.bill_type || billType || "restaurant");
+    fd.append("risk_level", lastAnalysis?.risk_level || "low");
+    fd.append("estimated_overcharge", lastAnalysis?.estimated_overcharge || 0);
+    fd.append("issues", JSON.stringify(issues));
+
+    try {
+      const res  = await fetch("/report", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.success) {
+        statusEl.textContent = data.geocoded
+          ? "✅ Saved! Location pinned on the map."
+          : "✅ Saved! (Address not geocoded — check spelling)";
+        statusEl.className = "text-xs text-center font-medium py-1 rounded-lg text-green-700 bg-green-50";
+        document.getElementById("report-name").value = "";
+        document.getElementById("report-address").value = "";
+      } else {
+        throw new Error("Save failed");
+      }
+    } catch (err) {
+      statusEl.textContent = "❌ Could not save. Try again.";
+      statusEl.className = "text-xs text-center font-medium py-1 rounded-lg text-red-700 bg-red-50";
+    }
+  }
+
+  // ── Reset ──────────────────────────────────────────────────
+  function resetAll() {
+    billType = null;
+    cameraData = null;
+    uploadData = null;
+    activeTab = null;
+    stopCamera();
+
+    document.querySelectorAll(".type-btn").forEach((b) => {
+      b.classList.remove("border-blue-600", "bg-blue-50");
+      b.classList.add("border-slate-200");
+    });
+
+    document.getElementById("bill-text").value = "";
+    document.getElementById("file-input").value = "";
+    hide("cam-preview");
+    hide("upload-preview");
+    show("drop-zone");
+    document.getElementById("capture-btn").classList.remove("hidden");
+
+    hide("input-section");
+    hide("results-section");
+    hide("report-card");
+    lastAnalysis = null;
+  }
+
+  // ── Helpers ────────────────────────────────────────────────
+  function show(id) { document.getElementById(id).classList.remove("hidden"); }
+  function hide(id) { document.getElementById(id).classList.add("hidden"); }
+  function setText(id, val) { document.getElementById(id).textContent = val; }
+</script>
+</body>
+</html>
